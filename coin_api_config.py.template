@@ -1,2 +1,5 @@
 ohlcv_url = "https://rest.coinapi.io/v1/ohlcv/%s/history"
+orderbook_url = "https://rest.coinapi.io/v1/orderbooks/%s/history"
 X_CoinAPI_Key = "add_key_here"
+output_csv = "/path/to/output.csv"
+fake_request_data = "/path/to/fake/data.json"
