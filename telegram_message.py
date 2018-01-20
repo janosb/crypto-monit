@@ -95,18 +95,3 @@ def get_channel_messages(client, channel, before_date):
 	return message_list
 		
 
-
-if __name__=="__main__":
-	APPEND = False
-	before_date = parse("2018-01-31T00:38:00")
-
-	client = get_tg_client()
-	message_list = get_channel_messages(client, "cryptovipsignall", before_date)
-	message_list.extend(get_channel_messages(client, "Crypto_WhaleZ", before_date))
-	message_df = pd.DataFrame(message_list)
-	if APPEND:
-		with open(tg_message_file, 'a') as f:
-			message_df.to_csv(f, header=False)
-	else:
-		message_df.to_csv(tg_message_file)
-

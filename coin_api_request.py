@@ -80,13 +80,4 @@ class PriceDataRequest(object):
 			print(e)
 			sys.exit()
 
-if __name__=="__main__":
-	tg_df = get_tg_df()
 
-	labeled_df = tg_df.loc[(~tg_df.coin.isnull()) & (tg_df.exchange != "UNKNOWN")].copy()
-	test_row = labeled_df.iloc[0]
-	symbol_id = "_".join([test_row.exchange.upper(), "SPOT", test_row.coin.upper(), "BTC"])
-	print(symbol_id)
-	pdr = PriceDataRequest(symbol_id, test_row.time)
-	print(pdr.to_str())
-	
