@@ -1,0 +1,2 @@
+ohlcv_url = "https://rest.coinapi.io/v1/ohlcv/%s/history"
+X_CoinAPI_Key = "add_key_here"
