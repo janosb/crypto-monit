@@ -13,6 +13,16 @@ pip install -r requirements.txt
 
 ```
 
+There are a few dependencies that NLTK asks you to download, so go ahead and run the following in python:
+
+```
+import nltk
+nltk.download('punkt')
+nltk.download('averaged_perceptron_tagger')
+nltk.download('stopwords')
+
+```
+
 ## Configuration 
 
 Config templates are available in tg_api_config.py.template and coin_api_config.py.template. Enter your information and rename to tg_api_config.py and coin_api_config.py.
