@@ -2,3 +2,7 @@ pandas
 telethon
 nltk
 scikit-learn
+flask
+gunicorn
+sqlalchemy
+psycopg2
