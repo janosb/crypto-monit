@@ -111,6 +111,7 @@ class MessageClassifier(object):
 		self.y_train = None
 		self.y_test = None
 		self.model = None
+		self.run()
 
 	@classmethod
 	def initialize_classifier(cls, features, labels):
@@ -122,14 +123,22 @@ class MessageClassifier(object):
 			raise ValueError("Features and Labels should be same size")
 		return cls(features, labels)
 
+	@classmethod
+	def initialize_from_file(cls):
+		df, labels = get_all_message_features()
+		return MessageClassifier.initialize_classifier(df, labels)
+
+	def run(self):
+		self.split_data()
+		self.set_model_to_decision_tree()
+		self.validate_model()		
+
 	def split_data(self):
 		self.X_train, self.X_test, self.y_train, self.y_test = \
 				train_test_split(self.features, self.labels, test_size=0.8)
-		#print(self.X_train, self.X_test, self.y_train, self.y_test)
 
 	def validate_model(self):
-		print(self.model.score(self.X_test, self.y_test))
-		self.split_data()
+		print("Accuracy on the test set: ", self.model.score(self.X_test, self.y_test))
 
 	# DIFFERENT CLASSIFIERS TO TRY
 	def set_model_to_decision_tree(self):
@@ -144,9 +153,13 @@ class MessageClassifier(object):
 			feats = pandas.DataFrame([mf.to_dict()])
 			prediction = self.model.predict(feats)
 			if prediction == 0: 
-				print("Not a PnD")
+				print("Not likely to be a Pump...")
 			else: 
-				print("Probably a PnD!")
+				print("Probably a Pump!")
+
+	def predict_message(self, msg_features):
+		feats = pandas.DataFrame([msg_features.to_dict()])
+		return self.model.predict(feats)
 
 def get_all_message_features():
 	df = get_clean_data_df()
@@ -168,12 +181,8 @@ def get_all_message_features():
 if __name__=='__main__':
 	df, labels = get_all_message_features()
 	clf = MessageClassifier.initialize_classifier(df, labels)
-	clf.split_data()
-	clf.set_model_to_decision_tree()
-	clf.validate_model()
-	clf.test_messages()
 
-	
+	#clf.test_messages()
 
 
 
