@@ -1,0 +1,4 @@
+pandas
+telethon
+nltk
+scikit-learn
