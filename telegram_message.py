@@ -59,6 +59,8 @@ class TgMessage(object):
 			self.exchange = "BITTREX"
 		elif "BINANCE" in m:
 			self.exchange = "BINANCE"
+		elif "POLONIEX" in m:
+			self.exchange = "POLONIEX"
 		else:
 			self.exchange = "UNKNOWN"
 
@@ -82,16 +84,17 @@ class TgMessage(object):
 		self.message = emoji_pattern.sub(r'', self.message)
 
 
-def get_channel_messages(client, channel, before_date):
+def get_channel_messages(client, channel, before_date=None):
 	messages = client.get_message_history(channel, limit=None, offset_date=before_date)
+	
 	message_list = []
-	print("found %d messages" % len(messages))
 	for m in messages:
 		if type(m) != telethon.tl.types.Message: continue
-
 		tgm = TgMessage(channel, m)
 		status = tgm.extract_coin()
 		message_list.append(tgm.msg_to_dict())
+
 	return message_list
-		
+	
+
 
