@@ -1,4 +1,5 @@
 api_id = 000000
 api_hash = 'add_hash_here'
 tg_message_file = '/path/to/output.csv'
-
+tg_cleaned_file = '/path/to/cleaned.csv'
+coin_map_file = '/path/to/coin_map.json'
