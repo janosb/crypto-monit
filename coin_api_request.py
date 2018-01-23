@@ -6,11 +6,11 @@ import os, sys
 import json
 
 from dateutil.parser import parse
-from tg_api_config import tg_message_file
+from tg_api_config import tg_cleaned_file
 from coin_api_config import *
 
 def get_tg_df():
-	return pd.read_csv(tg_message_file, parse_dates=True)
+	return pd.read_csv(tg_cleaned_file, parse_dates=['time'])
 
 def get_fake_request_data():
 	return open(fake_request_data, 'r').read()
@@ -18,26 +18,28 @@ def get_fake_request_data():
 
 class CoinAPIDataRequest(object):
 
-	def __init__(self, symbol_id, timestamp):
+	def __init__(self, symbol_id, timestamp, label):
 		self.symbol_id = symbol_id
+		self.label = label
 
 		if type(timestamp) == str:
 			self.timestamp = parse(timestamp)
 		elif type(timestamp) == datetime:
 			self.timestamp = timestamp
 		else:
-			raise TypeError('Unrecognized timestamp type')
+			raise TypeError('Unrecognized timestamp type: %s', timestamp)
 
 		self.minutes_before = -45
 		self.minutes_after = 45
 		self.time_start_iso = self.offset_timestamp(self.minutes_before)
 		self.time_end_iso = self.offset_timestamp(self.minutes_after)
+		self.calculate_hash()
 		self.request = None
 		self.dataframe = None
 
 	def calculate_hash(self):
-		hash_str = ':'.join([self.timestamp.isoformat(), self.symbol_id, self.type])
-		return hashlib.sha256(hash_str.encode()).hexdigest()
+		hash_str = ':'.join([self.timestamp.isoformat(), self.symbol_id])
+		self.hash = hashlib.sha256(hash_str.encode()).hexdigest()
 
 	def offset_timestamp(self, dt):
 			return (self.timestamp + datetime.timedelta(minutes = dt)).isoformat()
@@ -84,12 +86,10 @@ class CoinAPIDataRequest(object):
 			'time_end':self.time_end_iso,
 			'apikey':X_CoinAPI_Key
 		}
-		try:
-			r = requests.get(self.url % self.symbol_id, params=payload)
-			self.request = r
-		except Exception as e:
-			print(e)
-			sys.exit()
+
+		r = requests.get(self.url % self.symbol_id, params=payload)
+		self.request = r
+
 
 	def process_request(self):
 		if self.request == None:
@@ -115,10 +115,8 @@ class CoinAPIDataRequest(object):
 
 class PriceDataRequest(CoinAPIDataRequest):
 
-	def __init__(self, symbol_id, timestamp):
-		super().__init__(symbol_id, timestamp)
-		self.type = 'ohlcv:historical'
-		self.hash = self.calculate_hash()
+	def __init__(self, symbol_id, timestamp, label):
+		super().__init__(symbol_id, timestamp, label)
 		self.url = ohlcv_url
 		self.outfile = output_price_csv
 
@@ -128,6 +126,8 @@ class PriceDataRequest(CoinAPIDataRequest):
 		self.dataframe = pd.DataFrame(j)
 		self.dataframe['message_hash'] = self.hash
 		self.dataframe['symbol_id'] = self.symbol_id
+		self.dataframe['time_tg_message'] = self.timestamp.isoformat()
+		self.dataframe['label'] = self.label
 		
 		if not self.is_already_saved():
 			self.append_data_to_csv()
@@ -135,11 +135,9 @@ class PriceDataRequest(CoinAPIDataRequest):
 
 class OrderbookDataRequest(CoinAPIDataRequest):
 
-	def __init__(self, symbol_id, timestamp):
-		super().__init__(symbol_id, timestamp)
-		self.type = 'orderbook:historical'
+	def __init__(self, symbol_id, timestamp, label):
+		super().__init__(symbol_id, timestamp, label)
 		self.url = orderbook_url
-		self.hash = self.calculate_hash()
 		self.outfile = output_orderbook_csv
 
 	def process_json(self, j):
@@ -155,24 +153,13 @@ class OrderbookDataRequest(CoinAPIDataRequest):
 		self.dataframe = pd.DataFrame(asks + bids)
 		self.dataframe['message_hash'] = self.hash
 		self.dataframe['symbol_id'] = self.symbol_id
-		
+		self.dataframe['time_tg_message'] = self.timestamp.isoformat()
+		self.dataframe['label'] = self.label
+
 		if not self.is_already_saved():
 			self.append_data_to_csv()
 
 
-if __name__=='__main__':
-	tg_df = get_tg_df()
-
-	labeled_df = tg_df.loc[(~tg_df.coin.isnull()) & (tg_df.exchange != 'UNKNOWN')].copy()
-
-	iterable = zip(labeled_df['coin'],labeled_df['exchange'],labeled_df['time'])
-	for t in list(iterable):
-		symbol_id = '_'.join([t[1].upper(), 'SPOT', t[0], 'BTC'])
-		print(symbol_id)
-		pdr = OrderbookDataRequest(symbol_id, t[2])
-		if not pdr.is_already_saved():
-			pdr.window_request()
-			pdr.process_json(pdr.process_request())
 
 
 
