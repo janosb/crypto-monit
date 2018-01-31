@@ -4,3 +4,12 @@ tg_message_file = '/path/to/output.csv'
 tg_cleaned_file = '/path/to/cleaned.csv'
 coin_map_file = '/path/to/coin_map.json'
 monitored_channels = ['channel1', 'channel2']
+monitored_channels_min_id = [0000, 0001]
+tg_features_file = '/path/to/features.csv'
+tg_labels_file = '/path/to/labels.csv'
+
+pg_db = ''
+pg_user = ''
+pg_password = ''
+pg_host = ''
+pg_port = ''
