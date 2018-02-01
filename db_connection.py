@@ -8,4 +8,6 @@ cursor = conn.cursor()
 engine = create_engine("postgres://%s:%s@%s:%s/%s" % (pg_user, pg_password, pg_host, pg_port, pg_db))
 slqa_conn = engine.connect()
 
+sync_interval = '7 days'
+
 

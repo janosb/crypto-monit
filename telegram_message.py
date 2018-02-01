@@ -71,7 +71,7 @@ class TgMessage(object):
 			raise TypeError('Not a dict type')
 
 		raw_message = msg_dict['raw_message']
-		time_dt = parse(msg_dict['time'])
+		time_dt = parse(msg_dict['msg_time'])
 		msg_id = msg_dict['msg_id']
 		channel = msg_dict['channel']
 		label = msg_dict['label']
@@ -85,10 +85,10 @@ class TgMessage(object):
 
 	def msg_to_dict(self):
 		return {
-				'message_hash':self.msg_hash,
+				'msg_hash':self.msg_hash,
 				'channel':self.channel,
-				'time':self.time_str,
-				'message_id':self.msg_id,
+				'msg_time':self.time_str,
+				'msg_id':self.msg_id,
 				'n_subscribers':self.n_subscribers,
 				'raw_message':self.raw_message
 				}
@@ -107,7 +107,7 @@ class TgMessage(object):
 		return False
 
 	def pg_is_already_saved(self):
-		query = 'SELECT message_id FROM messages WHERE message_hash =\'%s\' LIMIT 1;' % self.msg_hash
+		query = 'SELECT msg_id FROM messages WHERE msg_hash =\'%s\' LIMIT 1;' % self.msg_hash
 		query_df = pd.read_sql_query(query, conn)
 		if query_df.shape[0] == 0:
 			return False
@@ -115,7 +115,7 @@ class TgMessage(object):
 		return True
 
 	def pg_save(self):
-		query = """ INSERT INTO messages (channel, message_hash, message_id, raw_message, time) 
+		query = """ INSERT INTO messages (channel, msg_hash, msg_id, raw_message, msg_time) 
 		            VALUES (%s, %s, %s, %s, %s) 
 		""" 
 		query_str = cursor.mogrify(query, (self.channel, self.msg_hash, self.msg_id, self.raw_message, self.time_dt))
