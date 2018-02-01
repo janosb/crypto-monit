@@ -1,18 +1,19 @@
+import pandas as pd
+import numpy as np
 import json
 import html.parser
-import re
-import pandas
-import sklearn as sk
 
-from sklearn.model_selection import train_test_split
 from nltk.tag import pos_tag
 from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
 from tg_api_config import tg_cleaned_file, coin_map_file
 from process_messages import get_clean_data_df
 
-class MessageFeatures(object):
 
+class MessageFeatures(object):
+	"""
+		Process the raw text from a telegram message
+	"""
 	def __init__(self, message):
 		self.raw_message = message.replace('\r',' ')
 		self.clean_message = None
@@ -20,11 +21,12 @@ class MessageFeatures(object):
 		self.features = {}
 		self.coin_map = self.load_coin_map()
 		self.first_coin_mentioned = None
+		self.first_exchange_mentioned = None
 		self.run()
 
 	@classmethod
 	def create_instance(cls, message):
-		if type(message) != str:
+		if not isinstance(message, str):
 			return None
 		return cls(message)
 
@@ -39,11 +41,13 @@ class MessageFeatures(object):
 	def clean(self):
 		html_parser = html.parser.HTMLParser()
 		msg = html_parser.unescape(self.raw_message)
-		msg = msg.replace(':', ' ').replace('/','  ').replace('#', ' ').replace('-', ' ')
+		msg = msg.replace(':', ' ').replace('/','  ').replace('#', ' ').replace('-', ' ').replace('!', ' ')
 		self.clean_message = msg
 
 	def tokenize(self):
 		tokens = word_tokenize(self.clean_message)
+		self.features['n_words_total'] = len(tokens)
+
 		stop_words = set(stopwords.words('english'))
 		filtered_tokens = [w for w in tokens if not w in stop_words]
 
@@ -58,9 +62,10 @@ class MessageFeatures(object):
 		self.features['contains_word_target'] = self.contains_word('target')
 		self.features['contains_word_buy'] = self.contains_word('buy')
 		self.features['contains_word_sell'] = self.contains_word('sell')
-		self.features['contains_word_btc'] = self.contains_word('btc')
+		self.features['contains_word_btc'] = self.contains_word('btc') or self.contains_word('bitcoin')
 		self.features['contains_exchange_name'] = self.contains_exchange()
-	
+		self.features['n_words_total'] = len(self.tokens)
+
 	def to_dict(self):
 		return self.features
 
@@ -96,93 +101,58 @@ class MessageFeatures(object):
 	def contains_exchange(self):
 		exchanges = ["BITTREX", "POLONIEX", "BINANCE"]
 		for tok in self.tokens:
-			if tok[0] in exchanges : return 1
+			if tok[0] in exchanges : 
+				self.first_exchange_mentioned = tok[0]
+				return 1
 		return 0		
 
 
 
-class MessageClassifier(object):
-
-	def __init__(self, features, labels):
-		self.features = features.values
-		self.labels = labels
-		self.X_train = None
-		self.X_test = None
-		self.y_train = None
-		self.y_test = None
-		self.model = None
-		self.run()
-
-	@classmethod
-	def initialize_classifier(cls, features, labels):
-		if type(features) != pandas.DataFrame:
-			raise TypeError("Features should be in a pandas DataFrame")
-		if type(labels) != list:
-			raise TypeError("Labels should be in a list")
-		if features.shape[0] != len(labels):
-			raise ValueError("Features and Labels should be same size")
-		return cls(features, labels)
-
-	@classmethod
-	def initialize_from_file(cls):
-		df, labels = get_all_message_features()
-		return MessageClassifier.initialize_classifier(df, labels)
-
-	def run(self):
-		self.split_data()
-		self.set_model_to_decision_tree()
-		self.validate_model()		
-
-	def split_data(self):
-		self.X_train, self.X_test, self.y_train, self.y_test = \
-				train_test_split(self.features, self.labels, test_size=0.8)
-
-	def validate_model(self):
-		print("Accuracy on the test set: ", self.model.score(self.X_test, self.y_test))
-
-	# DIFFERENT CLASSIFIERS TO TRY
-	def set_model_to_decision_tree(self):
-		from sklearn.tree import DecisionTreeClassifier
-		clf = DecisionTreeClassifier()
-		self.model = clf.fit(self.X_train, self.y_train)
-
-	def test_messages(self):
-		while 1:
-			msg = input('Enter message:')
-			mf = MessageFeatures.create_instance(msg)
-			feats = pandas.DataFrame([mf.to_dict()])
-			prediction = self.model.predict(feats)
-			if prediction == 0: 
-				print("Not likely to be a Pump...")
-			else: 
-				print("Probably a Pump!")
-
-	def predict_message(self, msg_features):
-		feats = pandas.DataFrame([msg_features.to_dict()])
-		return self.model.predict(feats)
 
 def get_all_message_features():
 	df = get_clean_data_df()
 	mfs = []
 	labels = []
 	for i in range(df.shape[0]):
-		mf = MessageFeatures.create_instance(df.iloc[i]['message'])
+		msg = df.iloc[i]['message']
+		mf = MessageFeatures.create_instance(msg)
 		if mf:
 			mfs.append(mf.to_dict())
 			labels.append(df.iloc[i]['label'])
 
-	return pandas.DataFrame(mfs), labels
+	return pd.DataFrame(mfs), labels
 
 
+def get_price_features():
+	features_df = pd.read_csv(output_features_csv)
+	message_label = 'label'
+	price_label = 'price_close_ratio_5_0_0_20_pct_change'
+	feats  = [
+				'price_close_ratio_45_5_5_0_mean_over_std', 
+				'price_close_ratio_45_10_10_0_mean_over_std', 
+				'price_close_ratio_20_10_10_0_mean_over_std',
+				'volume_traded_ratio_45_5_5_0_mean_over_std',
+				'volume_traded_ratio_20_5_5_0_pct_change',
+				'volume_traded_ratio_20_5_5_0_mean',
+				'volume_traded_ratio_45_10_10_0_sum',
+				'volume_traded_ratio_45_10_10_0_pct_change',
+			]
+	both = feats.copy()
+	both.append(price_label	)
+	both_df = features_df.loc[features_df[message_label] == 1, both]
+	df2 = both_df.replace([np.inf, -np.inf], np.nan)
+	df2.dropna(inplace=True)
 
+	df2['price_label'] = df2['price_close_ratio_5_0_0_20_pct_change'].apply(lambda x: 1 if x > 0.05 else 0)
+	df2.drop('price_close_ratio_5_0_0_20_pct_change', axis=1, inplace=True)
 
+	return df2.loc[:,feats], list(df2.loc[:,'price_label'].values)
 
 
 if __name__=='__main__':
+	#Messages
 	df, labels = get_all_message_features()
-	clf = MessageClassifier.initialize_classifier(df, labels)
 
-	#clf.test_messages()
 
 
 

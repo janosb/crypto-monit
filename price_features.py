@@ -79,9 +79,8 @@ def get_feature_zip(request_type):
 						([-45,-10],[-10,0])
 					]
 
-		cols = ['volume_traded', 'price_close']
-		stats = ['pct_change', 'mean_over_std']
-		#stats = ['mean','sum','std', 'pct_change', 'mean_over_std']
+		cols = ['trades_count','volume_traded', 'price_close']
+		stats = ['pct_change_mean', 'mean_over_std']
 		return list(itertools.product(interval_pairs, cols, stats))
 
 	if request_type == 'stat':
@@ -154,7 +153,7 @@ class PriceFeatures(object):
 		time_start_2 = 0
 		time_end_2 = 20
 
-		self.label = self.get_window_ratios(time_start_1, time_end_1, time_start_2, time_end_2, 'price_close', 'pct_change')
+		self.label = self.get_window_ratios(time_start_1, time_end_1, time_start_2, time_end_2, 'price_close', 'pct_change_max')
 
 
 	def add_stat_feature(self, time_start, time_end, col, stat):
@@ -197,12 +196,16 @@ class PriceFeatures(object):
 		try:
 			if stat == 'sum':
 				return win2[col].sum()/win1[col].sum()	
+			if stat == 'max':
+				return win2[col].max()/win1[col].max()	
 			if stat == 'avg' or stat == 'mean':
 				return win2[col].mean()/win1[col].mean()
 			if stat == 'std':
 				return win2[col].std()/win1[col].std()
-			if stat == 'pct_change':
+			if stat == 'pct_change_mean':
 				return (win2[col].mean()-win1[col].mean())/win1[col].mean()
+			if stat == 'pct_change_max':
+				return (win2[col].max()-win1[col].min())/win1[col].min()
 			if stat == 'mean_over_std':
 				return (win2[col].mean()-win1[col].mean())/win1[col].std()
 			else:

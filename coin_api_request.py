@@ -8,16 +8,20 @@ import json
 from dateutil.parser import parse
 from tg_api_config import tg_cleaned_file
 from coin_api_config import *
+from db_connection import conn, cursor, engine
 
+sqla_conn = engine.connect()
 
 try:
 	price_df = pd.read_csv(output_price_csv, parse_dates=['time_tg_message','time_close','time_open',
 											'time_period_start','time_period_end'])
 	saved_price_hashes = price_df.msg_hash.unique()
+	market_blacklist = pd.read_csv(market_blacklist_csv)
 except FileNotFoundError as e:
 	print(e)
 	price_df = None
 	saved_price_hashes = []
+	market_blacklist = None
 
 
 def get_tg_df():
@@ -42,8 +46,8 @@ class CoinAPIDataRequest(object):
 
 		self.minutes_before = -45
 		self.minutes_after = 45
-		self.time_start_iso = self.offset_timestamp(self.minutes_before)
-		self.time_end_iso = self.offset_timestamp(self.minutes_after)
+		self.time_start_iso = self.offset_timestamp(self.minutes_before).split('.')[0]
+		self.time_end_iso = self.offset_timestamp(self.minutes_after).split('.')[0]
 		self.request = None
 		self.dataframe = None
 
@@ -79,9 +83,23 @@ class CoinAPIDataRequest(object):
 
 		return False
 
+	def pg_is_already_saved(self):
+		query = 'SELECT symbol_id FROM price_data WHERE msg_hash =\'%s\' LIMIT 1;' % self.msg_hash
+		query_df = pd.read_sql_query(query, conn)
+		if query_df.shape[0] == 0:
+			return False
+		print("already saved in price_data: %s" % self.msg_hash)
+		return True
+
+	def pg_save(self):
+		self.dataframe.to_sql('price_data', sqla_conn, if_exists='append')
+
 	def run(self):
 		self.window_request()
-		j = self.process_request()
+		try:
+			j = self.process_request()
+		except requests.exceptions.HTTPError as e: 
+			print(self.symbol_id, self.request.status_code, e)
 		self.process_json(j)
 
 	def window_request(self):
@@ -130,8 +148,8 @@ class PriceDataRequest(CoinAPIDataRequest):
 		self.url = ohlcv_url
 		self.outfile = output_price_csv
 
-		if self.is_already_saved():
-			self.load()
+		if self.pg_is_already_saved():
+			self.pg_load()
 		else:
 			self.run()
 
@@ -141,20 +159,23 @@ class PriceDataRequest(CoinAPIDataRequest):
 		self.dataframe = pd.DataFrame(j)
 		self.dataframe['msg_hash'] = self.msg_hash
 		self.dataframe['symbol_id'] = self.symbol_id
-		self.dataframe['time_tg_message'] = self.timestamp
+		self.dataframe['time_tg_message'] = pd.to_datetime(self.timestamp)
 
-		self.dataframe['time_period_start'] = self.dataframe['time_period_start'].apply(parse)
-		self.dataframe['time_period_end'] = self.dataframe['time_period_end'].apply(parse)
-		self.dataframe['time_open'] = self.dataframe['time_open'].apply(parse)
-		self.dataframe['time_close'] = self.dataframe['time_close'].apply(parse)
+		self.dataframe['time_period_start'] = self.dataframe['time_period_start'].apply(pd.to_datetime)
+		self.dataframe['time_period_end'] = self.dataframe['time_period_end'].apply(pd.to_datetime)
+		self.dataframe['time_open'] = self.dataframe['time_open'].apply(pd.to_datetime)
+		self.dataframe['time_close'] = self.dataframe['time_close'].apply(pd.to_datetime)
 
-		if not self.is_already_saved():
-			self.append_data_to_csv()
+		#self.append_data_to_csv()
+		self.pg_save()
 
 	def load(self):
 		print('price data already saved for message %s' % self.msg_hash)
 		self.dataframe = price_df.loc[price_df.msg_hash == self.msg_hash]
 
+	def pg_load(self):
+		query = "SELECT * FROM price_data WHERE msg_hash = \'%s\'" % self.msg_hash
+		self.dataframe = pd.read_sql_query(query, conn)
 
 
 class OrderbookDataRequest(CoinAPIDataRequest):

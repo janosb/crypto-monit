@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import sklearn as sk
 import numpy as np
 
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, KFold
 from sklearn.metrics import roc_curve, confusion_matrix, average_precision_score, accuracy_score
 from coin_api_config import output_features_csv
 from message_features import get_all_message_features
@@ -13,7 +13,7 @@ class GeneralClassifier(object):
 	def __init__(self, features_df, labels):
 		self.features = features_df.values
 		self.feature_names = features_df.columns
-		self.labels = labels
+		self.labels = np.array(labels)
 		self.X_train = None
 		self.X_test = None
 		self.y_train = None
@@ -80,6 +80,11 @@ class GeneralClassifier(object):
 			self.plot_roc(fpr, tpr)
 		return fpr, tpr, thresholds, confusion_matrix
 
+	def k_fold_cv(self):
+		k_fold = KFold(n_splits=3)
+		print([self.model.fit(self.features[train], self.labels[train]).score(self.features[test], self.labels[test])
+					for train, test in k_fold.split(self.features)])
+
 	def plot_roc(self, fpr, tpr):
 		plt.style.use('dark_background')
 		plt.title('ROC Curve')
@@ -92,19 +97,24 @@ class GeneralClassifier(object):
 		plt.text(.4, .6, "AUC: %3.1f%%" % (auc*100))
 		plt.show()
 
-	def feature_importance(self, show=False):
+	def feature_importance(self, n_show, show=False):
 		importances = self.model.feature_importances_
-		n_feats = len(importances)
 		ix = np.argsort(importances)[::-1]
-		importances_sorted = importances[ix]
-		feature_names_sorted = self.feature_names[ix]
+		print(importances[ix])
+		importances_sorted = importances[ix[0:n_show]]
+		feature_names_sorted = self.feature_names[ix[0:n_show]]
 		if show:
+			fig, ax = plt.subplots()
 			plt.title('Message Classification: Importance of Features')
-			plt.ylabel('Importance')
-			for ii in range(n_feats):
-				plt.text(ii, .1, cleanup(feature_names_sorted[ii]), rotation=90)
-			plt.bar(range(len(importances)), importances_sorted)
-			plt.tick_params(axis='x', which='both', bottom='off', top='off', labelbottom='off')
+			plt.xlabel('Importance')
+			#plt.tick_params(axis='x', which='both', bottom='off', top='off', labelbottom='off')
+			plt.margins(0.2)
+			plt.subplots_adjust(left=0.45)
+			y_pos = np.arange(n_show)
+			ax.barh(y_pos, importances_sorted, align='center')
+			ax.set_yticks(y_pos)
+			ax.set_yticklabels(feature_names_sorted)
+			ax.invert_yaxis()
 			plt.show()
 
 def cleanup(string):
@@ -119,11 +129,11 @@ if __name__=='__main__':
 
 
 	features_df = both_df.drop(columns = ['label', 'msg_hash'])
-	labels_series = both_df.loc[:,'label'].apply(lambda x: 1 if x > 0.05 else 0)
-	print((labels_series))
+	labels_series = both_df.loc[:,'label'].apply(lambda x: 1 if x > 0.10 else 0)
 	clf = GeneralClassifier.initialize_classifier(features_df, list(labels_series))
 	clf.validate_model(show=True)
-	clf.feature_importance(show=True)
+	clf.feature_importance(5, show=True)
+	clf.k_fold_cv()
 
 
 

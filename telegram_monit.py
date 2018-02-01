@@ -2,11 +2,13 @@ import sys
 import signal
 import time
 import datetime
-
-from telethon import TelegramClient
-from message_features import MessageFeatures, GeneralClassifier
-from telegram_message import TgMessagem, get_tg_client
+import pandas as pd
+import psycopg2
+import telethon
+from message_features import MessageFeatures
+from telegram_message import TgMessage, get_tg_client
 from tg_api_config import *
+from db_connection import conn, cursor
 
 
 def signal_handler(signal, frame):
@@ -16,33 +18,35 @@ def signal_handler(signal, frame):
 
 class MonitoredChannel(object):
 	"""docstring for MonitoredChannel"""
-	def __init__(self, name, min_id):
+	def __init__(self, name, min_id, db_index, subscribers):
 		self.name = name
 		self.min_id = min_id
-
-	def get_min_id_from_db(self):
-		print('TODO: call DB to figure out last message that was added to db')
-		#self.min_id = ...
+		self.db_index = db_index
+		self.subscribers = subscribers
 
 	def get_new_messages(self, client):
 		messages = client.get_message_history(self.name, limit=None, min_id = self.min_id)
 		if len(messages) == 0:
 			return []
-		print(self.name, len(messages)," messages found")
-		self.min_id = messages[0].id 
+		self.update_min_id(messages[0].id)
 		return messages
+
+	def update_min_id(self, new_id):
+		self.min_id = new_id
+		query = "UPDATE channels SET min_id = %d WHERE index = %d" % (new_id, self.db_index) 
+		cursor.execute(query)
+		conn.commit()
 
 
 class TelegramMonitor(object):
 
 	def __init__(self):
-		self.client = self.get_tg_client()
 		self.channels = self.get_monitored_channels()
-		self.classifier = GeneralClassifier.initialize_from_file()
+		self.client = self.get_tg_client()
 		self.run()
 
 	def get_tg_client(self):
-		client = TelegramClient('', api_id, api_hash)
+		client = telethon.TelegramClient('', api_id, api_hash)
 		client.start()
 		return client
 
@@ -52,35 +56,30 @@ class TelegramMonitor(object):
 
 		while True:
 			self.ping_for_messages()
-			time.sleep(15)
+			time.sleep(tg_sleep_time_sec)
 
 	def get_monitored_channels(self):
-		channels = []
-		for channel, min_id in zip(monitored_channels, monitored_channels_min_id):
-			channels.append(MonitoredChannel(channel, min_id))
-		return channels
-
+		query = "select distinct on (channel) index, channel, min_id from channels;"
+		channels_df = pd.read_sql_query(query, conn)
+		ch_list = []
+		for index, row in channels_df.iterrows():
+			ch_list.append(MonitoredChannel(row['channel'], row['min_id'], row['index'], row['subscribers']))
+		return ch_list
 
 	def ping_for_messages(self):
 		for channel in self.channels:
-			#print('checking channel: %s' % channel.name)
+			print('checking channel: %s' % channel.name)
 			messages = channel.get_new_messages(self.client)
 
-			for msg in messages[::-1]:
+			for msg in messages:
 				if not isinstance(msg, telethon.tl.types.Message): continue
-
-				mf = MessageFeatures.create_instance(msg.message)
-				if mf:
-					prediction = self.classifier.predict_message(mf)
-					if prediction == 1:
-						print("Pump and Dump happening at %s! Coin: %s" 
-							% (msg.date, mf.first_coin_mentioned))
-					else:
-						print("did not detect pump in message: %s" % msg.date)
-				tgm = TgMessage(channel.name, msg, label=prediction)
-				tgm.append_to_file()
+				tgm = TgMessage(channel.name, msg.message, msg.time, msg.id, channel.subscribers)
+				#tgm.append_to_file()
+				sys.exit()
 
 if __name__=='__main__':
-	tm = TelegramMonitor()
+	#tm = TelegramMonitor()
+
+	tgm = TgMessage('test', 'Buy XVC and SELL when price goes above 120002 #bittrex', datetime.datetime.now(), 1, 0)
 
 

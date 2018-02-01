@@ -7,12 +7,15 @@ import os, sys
 from dateutil.parser import parse
 from telethon import TelegramClient
 from tg_api_config import *
+from db_connection import conn, cursor
 from message_features import MessageFeatures
 from price_features import PriceFeatures
 from coin_api_request import PriceDataRequest
 from general_classifier import GeneralClassifier
 
 message_classifier = GeneralClassifier.initialize_from_file()
+
+
 
 def get_tg_client():
 	client = TelegramClient('session_name', api_id, api_hash)
@@ -45,6 +48,7 @@ class TgMessage(object):
 		self.features_df = None
 
 		# use this flag to indicate whether to use the instance or not for classification
+		# i.e. did run() complete
 		self.complete = False
 		self.run()
 
@@ -102,6 +106,22 @@ class TgMessage(object):
 
 		return False
 
+	def pg_is_already_saved(self):
+		query = 'SELECT message_id FROM messages WHERE message_hash =\'%s\' LIMIT 1;' % self.msg_hash
+		query_df = pd.read_sql_query(query, conn)
+		if query_df.shape[0] == 0:
+			return False
+		print("already saved in messages: %s" % self.msg_hash)
+		return True
+
+	def pg_save(self):
+		query = """ INSERT INTO messages (channel, message_hash, message_id, raw_message, time) 
+		            VALUES (\'%s\', \'%s\', %d, \'%s\', \'%s\') 
+		""" % (self.channel, self.msg_hash, self.msg_id, self.raw_message, self.time_dt)
+		cursor.execute(query)
+		conn.commit()
+
+
 	def append_to_csv(self, dict_to_save, filename):
 		header = False if os.path.isfile(filename) else True
 		df = pd.DataFrame([dict_to_save])
@@ -137,15 +157,13 @@ class TgMessage(object):
 		self.calculate_hash()
 		self.remove_emojis()
 
-		if not self.is_already_saved():
-			self.append_to_csv(self.msg_to_dict(), tg_message_file)
-
 		tod = self.get_time_of_day()
 		dow = self.time_dt.weekday()
 
 		self.message_features = MessageFeatures(self.raw_message)
 
 		if not self.message_features.first_coin_mentioned:
+			print('no coins found')
 			return 
 		else:
 			self.first_coin_mentioned = self.message_features.first_coin_mentioned
@@ -156,6 +174,12 @@ class TgMessage(object):
 			self.first_exchange_mentioned = self.message_features.first_exchange_mentioned
 
 		self.get_coin_symbol_id()
+
+		if not self.pg_is_already_saved():
+			#self.append_to_csv(self.msg_to_dict(), tg_message_file)
+			print("saving message: %s" % self.msg_hash)
+			self.pg_save()
+
 		try:
 			price_data_request = PriceDataRequest(self.symbol_id, self.time_dt, self.msg_hash)
 		except Exception as e:
@@ -210,10 +234,10 @@ def get_channel_n_users(client, channel):
 
 
 if __name__=='__main__':
-	channel = 'crypto_experts_signal'
+	channel = 'cryptovipsignall'
 	client = get_tg_client()
 	#messages = get_channel_messages(client, 'crypto_experts_signal', min_id = 6000)[::-1]
-	messages = get_channel_messages(client, 'cryptovipsignall', min_id = 0)[::-1]
+	messages = get_channel_messages(client, 'crypto_experts_signal', min_id = 0)[::-1]
 	#channel = client.get_entity('https://t.me/crypto_experts_signal')
 	#ns = get_channel_n_users(client, channel)
 	#print(channel.participants_count)
