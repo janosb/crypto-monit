@@ -116,7 +116,7 @@ class TgMessage(object):
 
 	def pg_save(self):
 		query = """ INSERT INTO messages (channel, message_hash, message_id, raw_message, time) 
-		            VALUES (%s, %s, %d, %s, %s) 
+		            VALUES (%s, %s, %s, %s, %s) 
 		""" 
 		query_str = cursor.mogrify(query, (self.channel, self.msg_hash, self.msg_id, self.raw_message, self.time_dt))
 		cursor.execute(query_str)
@@ -177,7 +177,6 @@ class TgMessage(object):
 		self.get_coin_symbol_id()
 
 		if not self.pg_is_already_saved():
-			#self.append_to_csv(self.msg_to_dict(), tg_message_file)
 			print("saving message: %s" % self.msg_hash)
 			self.pg_save()
 
@@ -236,21 +235,6 @@ def get_channel_n_users(client, channel):
 
 if __name__=='__main__':
 	channel = 'cryptovipsignall'
-	client = get_tg_client()
-	#messages = get_channel_messages(client, 'crypto_experts_signal', min_id = 6000)[::-1]
-	messages = get_channel_messages(client, 'crypto_experts_signal', min_id = 0)[::-1]
-	#channel = client.get_entity('https://t.me/crypto_experts_signal')
-	#ns = get_channel_n_users(client, channel)
-	#print(channel.participants_count)
-	print(len(messages))
-	features = []
-	labels = []
-	for msg in messages:
-		tgm = TgMessage.parse_message(msg)
-		if tgm and tgm.complete:
-			features.append(tgm.features)
-			labels.append(tgm.price_label)
-
 
 		
 
