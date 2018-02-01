@@ -28,7 +28,6 @@ class MonitoredChannel(object):
 		messages = client.get_message_history(self.name, limit=None, min_id = self.min_id)
 		if len(messages) == 0:
 			return []
-		self.update_min_id(messages[0].id)
 		return messages
 
 	def update_min_id(self, new_id):
@@ -73,7 +72,11 @@ class TelegramMonitor(object):
 
 			for msg in messages:
 				if not isinstance(msg, telethon.tl.types.Message): continue
-				tgm = TgMessage(channel.name, msg.message, msg.time, msg.id, channel.subscribers)
+				print(channel.name, msg.message, msg.id)
+				print(msg.__dict__)
+				tgm = TgMessage(channel.name, msg.message, msg.date, msg.id, channel.subscribers)
+			channel.update_min_id(messages[0].id)
+
 
 if __name__=='__main__':
 	tm = TelegramMonitor()

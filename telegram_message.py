@@ -116,9 +116,10 @@ class TgMessage(object):
 
 	def pg_save(self):
 		query = """ INSERT INTO messages (channel, message_hash, message_id, raw_message, time) 
-		            VALUES (\'%s\', \'%s\', %d, \'%s\', \'%s\') 
-		""" % (self.channel, self.msg_hash, self.msg_id, self.raw_message, self.time_dt)
-		cursor.execute(query)
+		            VALUES (%s, %s, %d, %s, %s) 
+		""" 
+		query_str = cursor.mogrify(query, (self.channel, self.msg_hash, self.msg_id, self.raw_message, self.time_dt))
+		cursor.execute(query_str)
 		conn.commit()
 
 
