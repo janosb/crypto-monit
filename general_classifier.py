@@ -86,7 +86,6 @@ class GeneralClassifier(object):
 					for train, test in k_fold.split(self.features)])
 
 	def plot_roc(self, fpr, tpr):
-		plt.style.use('dark_background')
 		plt.title('ROC Curve')
 		plt.xlabel('False Positive Rate')
 		plt.ylabel('True Positive Rate')
@@ -107,7 +106,6 @@ class GeneralClassifier(object):
 			fig, ax = plt.subplots()
 			plt.title('Message Classification: Importance of Features')
 			plt.xlabel('Importance')
-			#plt.tick_params(axis='x', which='both', bottom='off', top='off', labelbottom='off')
 			plt.margins(0.2)
 			plt.subplots_adjust(left=0.45)
 			y_pos = np.arange(n_show)
