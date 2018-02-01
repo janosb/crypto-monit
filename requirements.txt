@@ -8,3 +8,4 @@ gunicorn
 sqlalchemy
 psycopg2
 matplotlib
+scipy
