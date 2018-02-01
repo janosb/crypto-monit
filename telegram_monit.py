@@ -59,7 +59,7 @@ class TelegramMonitor(object):
 			time.sleep(tg_sleep_time_sec)
 
 	def get_monitored_channels(self):
-		query = "select distinct on (channel) index, channel, min_id from channels;"
+		query = "select distinct on (channel) index, channel, min_id, subscribers from channels;"
 		channels_df = pd.read_sql_query(query, conn)
 		ch_list = []
 		for index, row in channels_df.iterrows():
