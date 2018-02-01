@@ -92,6 +92,7 @@ class CoinAPIDataRequest(object):
 		return True
 
 	def pg_save(self):
+		print(self.dataframe.head())
 		self.dataframe.to_sql('price_data', sqla_conn, if_exists='append')
 
 	def run(self):
@@ -116,6 +117,7 @@ class CoinAPIDataRequest(object):
 		}
 
 		r = requests.get(self.url % self.symbol_id, params=payload)
+		print(r.url)
 		self.request = r
 
 
@@ -166,7 +168,6 @@ class PriceDataRequest(CoinAPIDataRequest):
 		self.dataframe['time_open'] = self.dataframe['time_open'].apply(pd.to_datetime)
 		self.dataframe['time_close'] = self.dataframe['time_close'].apply(pd.to_datetime)
 
-		#self.append_data_to_csv()
 		self.pg_save()
 
 	def load(self):
@@ -202,6 +203,36 @@ class OrderbookDataRequest(CoinAPIDataRequest):
 
 		if not self.is_already_saved():
 			self.append_data_to_csv()
+
+
+
+class PriceWindowRequest(CoinAPIDataRequest):
+
+	def __init__(self, symbol_id, timestamp, msg_hash, t_start, t_end):
+		super().__init__(symbol_id, timestamp, msg_hash)
+		self.url = ohlcv_url
+		self.time_start_iso = pd.to_datetime(t_start).isoformat().split('.')[0]
+		self.time_end_iso = pd.to_datetime(t_end).isoformat().split('.')[0]
+		self.run()
+
+	def process_json(self, j):
+		if j == None:
+			return
+		if j == []:
+			return
+		self.dataframe = pd.DataFrame(j)
+		self.dataframe['msg_hash'] = self.msg_hash
+		self.dataframe['symbol_id'] = self.symbol_id
+		self.dataframe['time_tg_message'] = pd.to_datetime(self.timestamp)
+
+		self.dataframe['time_period_start'] = self.dataframe['time_period_start'].apply(pd.to_datetime)
+		self.dataframe['time_period_end'] = self.dataframe['time_period_end'].apply(pd.to_datetime)
+		self.dataframe['time_open'] = self.dataframe['time_open'].apply(pd.to_datetime)
+		self.dataframe['time_close'] = self.dataframe['time_close'].apply(pd.to_datetime)
+
+		self.pg_save()
+
+
 
 
 
