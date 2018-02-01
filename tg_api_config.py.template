@@ -7,6 +7,7 @@ monitored_channels = ['channel1', 'channel2']
 monitored_channels_min_id = [0000, 0001]
 tg_features_file = '/path/to/features.csv'
 tg_labels_file = '/path/to/labels.csv'
+tg_sleep_time_sec = 15
 
 pg_db = ''
 pg_user = ''
