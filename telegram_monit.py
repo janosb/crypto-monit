@@ -74,12 +74,9 @@ class TelegramMonitor(object):
 			for msg in messages:
 				if not isinstance(msg, telethon.tl.types.Message): continue
 				tgm = TgMessage(channel.name, msg.message, msg.time, msg.id, channel.subscribers)
-				#tgm.append_to_file()
-				sys.exit()
 
 if __name__=='__main__':
-	#tm = TelegramMonitor()
+	tm = TelegramMonitor()
 
-	tgm = TgMessage('test', 'Buy XVC and SELL when price goes above 120002 #bittrex', datetime.datetime.now(), 1, 0)
 
 
