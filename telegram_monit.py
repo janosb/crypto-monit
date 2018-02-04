@@ -17,7 +17,6 @@ def signal_handler(signal, frame):
 
 
 class MonitoredChannel(object):
-	"""docstring for MonitoredChannel"""
 	def __init__(self, name, min_id, db_index, subscribers):
 		self.name = name
 		self.min_id = min_id
@@ -25,10 +24,7 @@ class MonitoredChannel(object):
 		self.subscribers = subscribers
 
 	def get_new_messages(self, client):
-		messages = client.get_message_history(self.name, limit=None, min_id = self.min_id)
-		if len(messages) == 0:
-			return []
-		return messages
+		return client.get_message_history(self.name, limit=None, min_id = self.min_id)
 
 	def update_min_id(self, new_id):
 		self.min_id = new_id
@@ -42,14 +38,14 @@ class TelegramMonitor(object):
 	def __init__(self):
 		self.channels = self.get_monitored_channels()
 		self.client = self.get_tg_client()
-		self.run()
+		self._run()
 
 	def get_tg_client(self):
-		client = telethon.TelegramClient('', api_id, api_hash)
+		client = telethon.TelegramClient('', api_id, api_hash) # error handling
 		client.start()
 		return client
 
-	def run(self):
+	def _run(self):
 		# handle interrupts, otherwise monitor forever
 		signal.signal(signal.SIGINT, signal_handler)
 
@@ -59,21 +55,16 @@ class TelegramMonitor(object):
 
 	def get_monitored_channels(self):
 		query = "select distinct on (channel) index, channel, min_id, subscribers from channels;"
-		channels_df = pd.read_sql_query(query, conn)
-		ch_list = []
-		for index, row in channels_df.iterrows():
-			ch_list.append(MonitoredChannel(row['channel'], row['min_id'], row['index'], row['subscribers']))
-		return ch_list
+		channels_df = pd.read_sql_query(query, conn) # error handling
+		return [MonitoredChannel(row['channel'], row['min_id'], row['index'], row['subscribers']) 
+					for index, row in channels_df.iterrows()]
 
 	def ping_for_messages(self):
 		for channel in self.channels:
-			print('checking channel: %s' % channel.name)
 			messages = channel.get_new_messages(self.client)
 
 			for msg in messages:
 				if not isinstance(msg, telethon.tl.types.Message): continue
-				print(channel.name, msg.message, msg.id)
-				print(msg.__dict__)
 				tgm = TgMessage(channel.name, msg.message, msg.date, msg.id, channel.subscribers)
 			channel.update_min_id(messages[0].id)
 
