@@ -69,13 +69,14 @@ class TelegramMonitor(object):
 		for channel in self.channels:
 			print('checking channel: %s' % channel.name)
 			messages = channel.get_new_messages(self.client)
-
+			
 			for msg in messages:
 				if not isinstance(msg, telethon.tl.types.Message): continue
 				print(channel.name, msg.message, msg.id)
 				print(msg.__dict__)
 				tgm = TgMessage(channel.name, msg.message, msg.date, msg.id, channel.subscribers)
-			channel.update_min_id(messages[0].id)
+			if messages:
+				channel.update_min_id(messages[0].id)
 
 
 if __name__=='__main__':
