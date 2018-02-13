@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import sklearn as sk
 import numpy as np
 
-from sklearn.model_selection import train_test_split, KFold
+from sklearn.model_selection import train_test_split, KFold, StratifiedKFold
 from sklearn.metrics import roc_curve, confusion_matrix, average_precision_score, accuracy_score
 from coin_api_config import output_features_csv
 from message_features import get_all_message_features
@@ -18,6 +18,7 @@ class GeneralClassifier(object):
 		self.X_test = None
 		self.y_train = None
 		self.y_test = None
+		self.clf = None
 		self.model = None
 		self.run()
 
@@ -34,13 +35,13 @@ class GeneralClassifier(object):
 	@classmethod
 	def initialize_from_file(cls):
 		# this is only for Message classification!
-
 		df, labels = get_all_message_features()
 		return GeneralClassifier.initialize_classifier(df, labels)
 
 	def run(self):
 		self.split_data()
 		self.set_model_to_random_forest()
+		self.fit()
 		self.validate_model()		
 
 	def split_data(self):
@@ -50,18 +51,22 @@ class GeneralClassifier(object):
 	# DIFFERENT CLASSIFIERS TO TRY
 	def set_model_to_decision_tree(self):
 		from sklearn.tree import DecisionTreeClassifier
-		clf = DecisionTreeClassifier()
-		self.model = clf.fit(self.X_train, self.y_train)
+		self.clf = DecisionTreeClassifier()
 
 	def set_model_to_random_forest(self):
 		from sklearn.ensemble import RandomForestClassifier
-		clf = RandomForestClassifier(n_estimators = 50)
-		self.model = clf.fit(self.X_train, self.y_train)
+		self.clf = RandomForestClassifier(n_estimators = 50)
 
-	def set_model_to_random_forest_reg(self):
-		from sklearn.ensemble import RandomForestRegressor
-		regr = RandomForestRegressor(max_depth=2, random_state=0)
-		self.model = regr.fit(self.X_train, self.y_train)
+	def set_model_to_logistic_regression(self):
+		from sklearn.linear_model import LogisticRegression
+		self.clf = LogisticRegression()
+
+	def set_model_to_svm(self):
+		from sklearn.svm import LinearSVC
+		self.clf = LinearSVC()
+	
+	def fit(self):
+		self.model = self.clf.fit(self.X_train, self.y_train)
 
 	def predict_message(self, msg_features):
 		feats = pd.DataFrame([msg_features.to_dict()])
@@ -83,7 +88,13 @@ class GeneralClassifier(object):
 	def k_fold_cv(self):
 		k_fold = KFold(n_splits=3)
 		print([self.model.fit(self.features[train], self.labels[train]).score(self.features[test], self.labels[test])
-					for train, test in k_fold.split(self.features)])
+			for train, test in k_fold.split(self.features)])
+
+	def strat_k_fold_cv(self):
+		strat_k_fold = StratifiedKFold(n_splits=3)
+		print([self.model.fit(self.features[train], self.labels[train]).score(self.features[test], self.labels[test])                        
+			for train, test in strat_k_fold.split(self.features, self.labels)])
+
 
 	def plot_roc(self, fpr, tpr):
 		plt.title('ROC Curve')
@@ -129,9 +140,10 @@ if __name__=='__main__':
 	features_df = both_df.drop(columns = ['label', 'msg_hash'])
 	labels_series = both_df.loc[:,'label'].apply(lambda x: 1 if x > 0.10 else 0)
 	clf = GeneralClassifier.initialize_classifier(features_df, list(labels_series))
+	clf.set_model_to_svm()
 	clf.validate_model(show=True)
 	clf.feature_importance(5, show=True)
-	clf.k_fold_cv()
+	clf.strat_k_fold_cv()
 
 
 
