@@ -9,7 +9,7 @@ from message_features import MessageFeatures
 from telegram_message import TgMessage, get_tg_client
 from tg_api_config import *
 from db_connection import conn, cursor
-
+from telethon.errors.rpc_error_list import UsernameNotOccupiedError
 
 def signal_handler(signal, frame):
     print("\nprogram interrupted or killed")
@@ -24,7 +24,10 @@ class MonitoredChannel(object):
 		self.subscribers = subscribers
 
 	def get_new_messages(self, client):
-		return client.get_message_history(self.name, limit=None, min_id = self.min_id)
+		try: 
+			return client.get_message_history(self.name, limit=None, min_id = self.min_id)
+		except UsernameNotOccupiedError:
+			return []
 
 	def update_min_id(self, new_id):
 		self.min_id = new_id
@@ -54,7 +57,7 @@ class TelegramMonitor(object):
 			time.sleep(tg_sleep_time_sec)
 
 	def get_monitored_channels(self):
-		query = "select distinct on (channel) index, channel, min_id, subscribers from channels;"
+		query = "SELECT DISTINCT ON (channel) index, channel, min_id, subscribers FROM channels;"
 		channels_df = pd.read_sql_query(query, conn) # error handling
 		return [MonitoredChannel(row['channel'], row['min_id'], row['index'], row['subscribers']) 
 					for index, row in channels_df.iterrows()]

@@ -187,7 +187,7 @@ class OrderbookDataRequest(CoinAPIDataRequest):
 		self.outfile = output_orderbook_csv
 
 	def process_json(self, j):
-		if j == None:
+		if not j:
 			return
 
 		asks = [{'price':d['price'],'size':d['size'],'time_exchange':data['time_exchange'],
@@ -216,9 +216,8 @@ class PriceWindowRequest(CoinAPIDataRequest):
 		self.run()
 
 	def process_json(self, j):
-		if j == None:
-			return
-		if j == []:
+		print(j)
+		if not j:
 			return
 		self.dataframe = pd.DataFrame(j)
 		self.dataframe['msg_hash'] = self.msg_hash
