@@ -1,5 +1,7 @@
 # Cryptomarket monitoring
 
+
+
 This is a project aiming to monitor altcoin markets and detect "pump-and-dump" events in real-time using a combination of Telegram and OHLCV data.
 
 ## Requirements
